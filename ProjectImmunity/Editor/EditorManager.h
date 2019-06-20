@@ -12,6 +12,7 @@ class Map;
 class ResourceManager;
 class Renderer;
 class MapEditor;
+class Game;
 
 /*
 * Editor Manager Manages all the tools that are used, Updates them and handles the Imgui menus.
@@ -19,7 +20,7 @@ class MapEditor;
 class Editor
 {
 public:
-    Editor(ResourceManager* rm_, Renderer* renderer_, sf::RenderWindow* window_);
+    Editor(Game* sim, ResourceManager* rm_, Renderer* renderer_, sf::RenderWindow* window_);
     ~Editor();
 
     void Update(float dt);
@@ -32,10 +33,12 @@ public:
     ResourceManager* rm;
     sf::RenderWindow* window;
     Renderer* renderer;
+    Game* game;
 
     //Editors
     MapEditor* mapEditor;
 
     //Bools For window
     bool isMapEditorOpen = true;
+    bool hasFocusOnce = false;
 };

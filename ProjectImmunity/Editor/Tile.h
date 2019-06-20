@@ -8,7 +8,7 @@ struct TextureResource;
 
 struct Tile
 {
-    uint id;
+    unsigned int id;
     sf::Vector2i coord;
 
     sf::Sprite sprite;

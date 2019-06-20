@@ -8,6 +8,12 @@
 #include "cereal/archives/json.hpp"
 #include "Resource.h"
 
+#include <filesystem>
+
+class ScriptManager;
+
+namespace fs = std::experimental::filesystem;
+
 class Object;
 class Map;
 
@@ -46,15 +52,22 @@ public:
     //Returns the number of elements in a map of type.
     int GetSizeByType(ResourceType type);
 
+    void ReloadAssets() 
+    {
+        managerIds = 0;
+        LoadAllAssets(fs::current_path().string() + "/Assets");
+    }
+
 public:
     std::map<int, MapResource*>     maps;
 
 private:
     //Ids that are distributed to assets.
-    uint managerIds = 0;
+    unsigned int managerIds = 0;
 
     std::unordered_map<int, TextureResource*> textures;
     std::unordered_map<int, ObjectResource*>  objects;
     //std::map<int, MapResource*>     maps;
 
+    ScriptManager* scriptmanager;
 };

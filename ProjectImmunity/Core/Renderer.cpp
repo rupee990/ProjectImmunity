@@ -10,7 +10,7 @@ Renderer::~Renderer()
 
 }
 
-uint Renderer::RegisterObject(sf::Drawable* object)
+unsigned int Renderer::RegisterObject(sf::Drawable* object)
 {
     registeredObjects[renderIds] = object;
 
@@ -19,7 +19,7 @@ uint Renderer::RegisterObject(sf::Drawable* object)
     return renderIds - 1;
 }
 
-void Renderer::DeRegisterObject(uint key)
+void Renderer::DeRegisterObject(unsigned int key)
 {
     //delete(registeredObjects[key]);
     registeredObjects.erase(key);

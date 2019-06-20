@@ -22,7 +22,7 @@ enum ResourceType
 struct TextureResource
 {
     std::string name;
-    uint id;
+    unsigned int id;
 
     sf::Texture* texture;
 };
@@ -30,7 +30,7 @@ struct TextureResource
 struct ObjectResource
 {
     std::string name;
-    uint id;
+    unsigned int id;
 
     ObjectResource* object;
 
@@ -102,8 +102,8 @@ struct RoomResource
 struct MapResource
 {
     std::string name;
-    uint id;
-    uint numberOfRooms;
+    unsigned int id;
+    unsigned int numberOfRooms;
 
     Map* map;
 

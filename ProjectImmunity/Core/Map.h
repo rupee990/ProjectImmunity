@@ -25,7 +25,7 @@ struct Room
     void SetPos(float arr[2]);
 };
 
-class Map : Object
+class Map
 {
 public:
     Map();
@@ -37,11 +37,11 @@ public:
     //void Render();
 
 public:
-    uint tileIds;
+     unsigned int tileIds;
 
     sf::Vector2i size;
     sf::Vector2f position;
 
-    std::map<uint, Room*> rooms;
+    std::map<unsigned int, Room*> rooms;
 
 };

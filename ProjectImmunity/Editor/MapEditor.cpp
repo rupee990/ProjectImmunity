@@ -5,11 +5,15 @@
 #include "../Core/Managers/Resource.h"
 #include "../Core/Managers/ResourceManager.h"
 #include "../Core/Renderer.h"
-#include "../Utilities/Utilities.h"
+#include "Utilities.h"
 #include "Tile.h"
+#include "../Core/Camera.h"
 
 #include <iostream>
 #include <string>
+
+#define TileSizeX 32.0f
+#define TileSizeY 32.0f
 
 MapEditor::MapEditor(Editor* editor_)
 {
@@ -47,13 +51,13 @@ void MapEditor::Update(float dt)
     {
         if (ImGui::IsMouseClicked(0) && !ImGui::IsMouseHoveringAnyWindow() && map)
         {
-            sf::Vector2f mpos = ImGui::GetMousePos();
+            sf::Vector2f mpos = editor->window->mapPixelToCoords(sf::Mouse::getPosition());
             for (auto& a : map->rooms)
             {
-                sf::Vector2f roomCenter = a.second->position + sf::Vector2f((a.second->size.x * 16)* 0.5f, (a.second->size.y * 16) * 0.5f);
+                sf::Vector2f roomCenter = a.second->position + sf::Vector2f((a.second->size.x * TileSizeX)* 0.5f, (a.second->size.y * TileSizeY) * 0.5f);
 
                 //Check what room we are hovering
-                if (util::DistCheck(roomCenter, mpos, util::GetDistance(a.second->position, roomCenter)))
+                if (ru::DistCheck(roomCenter, mpos, ru::GetDistance(a.second->position, roomCenter)))
                 {
                     //Select Room
                     selectedRoom = a.second;
@@ -67,28 +71,40 @@ void MapEditor::Update(float dt)
 
     if (toolState == BRUSH)
     {
-        if (ImGui::IsMouseClicked(0, true) && !ImGui::IsMouseHoveringAnyWindow())
+        if (ImGui::IsMouseClicked(0, true) && !ImGui::IsMouseHoveringAnyWindow() && map)
         {
-            sf::Vector2f mpos = ImGui::GetMousePos();
-            
+            //glm::vec2 mpos = glm::vec2(ImGui::GetMousePos().x, ImGui::GetMousePos().y);
+
+            sf::Vector2f mpos = editor->window->mapPixelToCoords(sf::Mouse::getPosition());
+
             for (auto& a : map->rooms)
             {
-                sf::Vector2f roomCenter = a.second->position + sf::Vector2f((a.second->size.x * 16)* 0.5f, (a.second->size.y * 16) * 0.5f);
+                sf::Vector2f roomCenter = a.second->position + sf::Vector2f((a.second->size.x * TileSizeX)* 0.5f, (a.second->size.y * TileSizeY) * 0.5f);
 
                 //Check what room we are hovering
-                if (util::DistCheck(roomCenter, mpos, util::GetDistance(a.second->position, roomCenter)))
+                if (ru::DistCheck(roomCenter, mpos, ru::GetDistance(sf::Vector2f(a.second->position.x, a.second->position.y), roomCenter)))
                 {
                     //Perform AABB
-                    if (util::AABB(mpos, a.second->position, sf::Vector2u(a.second->size.x * 16, a.second->size.y * 16)))
+                    if (ru::AABB(mpos, a.second->position, sf::Vector2f(a.second->size.x * TileSizeX, a.second->size.y * TileSizeY)))
                     {
-                        int x = (mpos.x - a.second->position.x) / 16;
-                        int y = (mpos.y - a.second->position.y) / 16;
+                        int x = (mpos.x - a.second->position.x) / TileSizeX;
+                        int y = (mpos.y - a.second->position.y) / TileSizeY;
 
                         //Change the tile at location
                         a.second->tiles[x + a.second->size.x * y]->sprite.setTextureRect(selectedTile->getTextureRect());
                     }
                 }
             }
+        }
+
+        if (selectedTile)
+        {
+            sf::Vector2f pos = editor->window->mapPixelToCoords(sf::Mouse::getPosition());
+
+            int x = (int)((pos.x / TileSizeX) - 1) * TileSizeX;
+            int y = (int)((pos.y / TileSizeY) - 2) * TileSizeY;
+
+            tilePreview->setPosition(sf::Vector2f(x, y));
         }
     }
 }
@@ -194,8 +210,8 @@ void MapEditor::UpdateEditorUI(float dt)
         ImGui::Text("Selected Room");
 
         //ImGui::InputInt2(": Position", roomPos, 16);
-        ImGui::InputFloat(": X", &roomPos[0], 16.0f, 16.0f);
-        ImGui::InputFloat(": Y", &roomPos[1], 16.0f, 16.0f);
+        ImGui::InputFloat(": X", &roomPos[0], TileSizeX, TileSizeX);
+        ImGui::InputFloat(": Y", &roomPos[1], TileSizeX, TileSizeX);
 
         if (selectedRoom)
         {
@@ -232,9 +248,6 @@ void MapEditor::UpdateEditorUI(float dt)
             //Open Tilemap Selector
             ImGui::OpenPopup("TextureSelector");
         }
-
-        //Loading Tilemap Popup
-        ImGui::SetNextWindowSize(ImVec2(250, 230));
         if (ImGui::BeginPopupModal("TextureSelector"))
         {
             static int currentIndex = 0;
@@ -252,7 +265,9 @@ void MapEditor::UpdateEditorUI(float dt)
                         preview = textures_items[n];
 
                         tilemapTexturePreview = new sf::Texture;
+                        tileMapAssetId = textures_items[n];
                         tilemapTexturePreview = editor->rm->GetTexture(textures_items[n])->texture;
+                        
                     }
 
                     if (is_selected)
@@ -260,7 +275,7 @@ void MapEditor::UpdateEditorUI(float dt)
                         ImGui::SetItemDefaultFocus();
                     }
                 }
-                    ImGui::EndCombo();
+                ImGui::EndCombo();
             }
             //ImGui::Combo("Textures_", &currentIndex, items, IM_ARRAYSIZE(items))
 
@@ -276,7 +291,7 @@ void MapEditor::UpdateEditorUI(float dt)
             {
                 tilemap = tilemapTexturePreview;
                 ImGui::CloseCurrentPopup();
-                
+
             }
             ImGui::SameLine();
             if (ImGui::Button("Cancel"))
@@ -286,6 +301,17 @@ void MapEditor::UpdateEditorUI(float dt)
 
             ImGui::EndPopup();
         }
+
+        //tileMap Parameters
+        if (ImGui::Button("Tilemap Parameters"))
+        {
+            ImGui::OpenPopup("TilemapParameters");
+        }
+        //Tilemap parameters popup, lets the user set properties for everytile (Walkable, wall, etc)
+
+        //Loading Tilemap Popup
+        ImGui::SetNextWindowSize(ImVec2(250, 230));
+
 
         static int uniformscale = 2.0f;
         ImGui::InputInt("Preview scale", &uniformscale);
@@ -313,16 +339,27 @@ void MapEditor::UpdateEditorUI(float dt)
                 if (ImGui::IsMouseHoveringRect(tilemapPos + windowPos, sf::Vector2f((tilemapPos.x + (size.x * uniformscale)) + windowPos.x,
                                                                                     (tilemapPos.y + (size.y * uniformscale)) + windowPos.y)))
                 {
-                    int x = (mousePos.x - (tilemapPos.x + windowPos.x)) / (16 * uniformscale);
-                    int y = (mousePos.y - (tilemapPos.y + windowPos.y)) / (16 * uniformscale);
+                    int x = (mousePos.x - (tilemapPos.x + windowPos.x)) / (TileSizeX * uniformscale);
+                    int y = (mousePos.y - (tilemapPos.y + windowPos.y)) / (TileSizeY * uniformscale);
 
                     if (!selectedTile)
                     {
                         selectedTile = new sf::Sprite(*tspr);
                         selectedTile->scale(sf::Vector2f(2.0f, 2.0f));
+                        
+                        if (!tilePreview)
+                        {
+                            tilePreview = new sf::Sprite(*tspr);
+                            tilePreview->scale(sf::Vector2f(0.5f, 0.5f));
+                        }
+                        static int key;
+                        
+                        if(!editor->renderer->isRegistered(key))
+                            key = editor->renderer->RegisterObject(tilePreview);
                     }
 
-                    selectedTile->setTextureRect(sf::IntRect(x * 16, y * 16, 16, 16));
+                    tilePreview->setTextureRect(sf::IntRect(x * TileSizeX, y * TileSizeY, TileSizeX, TileSizeY));
+                    selectedTile->setTextureRect(sf::IntRect(x * TileSizeX, y * TileSizeY, TileSizeX, TileSizeY));
 
                 }
             }
@@ -462,7 +499,7 @@ void MapEditor::NewMap()
     map = new Map();
 }
 
-void MapEditor::NewRoom(uint sizex_, uint sizey_, float posx_, float posy_, std::string TileMap)
+void MapEditor::NewRoom(unsigned int sizex_, unsigned int sizey_, float posx_, float posy_, std::string TileMap)
 {
     if (!map)
     {
@@ -495,7 +532,7 @@ void MapEditor::NewRoom(uint sizex_, uint sizey_, float posx_, float posy_, std:
             tile->texture = editor->rm->GetTexture(TileMap);
             tile->sprite = sf::Sprite(*tile->texture->texture);
             tile->coord = sf::Vector2i(j, i);
-            tile->sprite.setTextureRect(sf::IntRect(sf::Vector2i(0, 0), sf::Vector2i(16, 16)));
+            tile->sprite.setTextureRect(sf::IntRect(sf::Vector2i(0, 0), sf::Vector2i(TileSizeX, TileSizeY)));
 
             tile->sprite.setPosition(sf::Vector2f(  (j * tile->sprite.getTextureRect().width) + posx_, 
                                                     (i * tile->sprite.getTextureRect().height) + posy_));
@@ -508,3 +545,22 @@ void MapEditor::NewRoom(uint sizex_, uint sizey_, float posx_, float posy_, std:
     map->rooms[mapid] = room;
     mapid++;
 }
+
+void MapEditor::RefreshAssets()
+{
+    if (tileMapAssetId != "")
+    {
+        tilemap = editor->rm->GetTexture(tileMapAssetId)->texture;
+
+        if (!map)
+            return;
+
+        for (auto& a : map->rooms)
+        {
+            for (auto& t : a.second->tiles)
+            {
+                t->sprite.setTexture(*tilemap);
+            }
+        }
+    }
+};

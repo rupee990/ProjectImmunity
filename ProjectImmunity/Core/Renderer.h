@@ -13,15 +13,25 @@ public:
     Renderer(sf::RenderWindow* window_);
     ~Renderer();
 
-    uint RegisterObject(sf::Drawable* object);
-    void DeRegisterObject(uint key);
+    unsigned int RegisterObject(sf::Drawable* object);
+    void DeRegisterObject(unsigned int key);
+
+    bool isRegistered(unsigned int key)
+    { 
+        if (registeredObjects.find(key) != registeredObjects.end()) 
+            return true; 
+        else 
+            return false; 
+    }
 
     void Render();
+
+    sf::RenderWindow& GetRenderTarget() { return *window; }
 
 private:
     sf::RenderWindow* window;
     int renderIds = 0;
 
-    std::map<uint, sf::Drawable*> registeredObjects;
+    std::map<unsigned int, sf::Drawable*> registeredObjects;
 
 };

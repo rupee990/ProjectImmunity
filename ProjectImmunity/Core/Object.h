@@ -8,9 +8,9 @@ public:
     Object() {};
     ~Object() {};
 
-    static void Update();
+    void Update() {};
 
-protected:
-    sf::Transform* transform;
-
+public:
+    int id;
+    sf::Sprite sprite;
 };

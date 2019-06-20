@@ -6,9 +6,13 @@
 #include "../Core/Managers/ResourceManager.h"
 #include "../Core/Renderer.h"
 #include "MapEditor.h"
+
+#include "../Core/Game.h"
  
-Editor::Editor(ResourceManager* rm_, Renderer* renderer_, sf::RenderWindow* window_)
+Editor::Editor(Game* _game, ResourceManager* rm_, Renderer* renderer_, sf::RenderWindow* window_)
 {
+    game = _game;
+
     rm = rm_;
     window = window_;
     renderer = renderer_;
@@ -24,6 +28,22 @@ Editor::~Editor()
 
 void Editor::Update(float dt)
 {
+    //If Window is into focus, reload assets
+    if (window->hasFocus())
+    {
+        if (hasFocusOnce)
+        {
+            hasFocusOnce = false;
+            rm->ReloadAssets();
+
+            mapEditor->RefreshAssets();
+        }
+    }
+    else
+    {
+        hasFocusOnce = true;
+    }
+
     ImGui::BeginMainMenuBar();
     if (ImGui::BeginMenu("Project"))
     {
@@ -54,6 +74,21 @@ void Editor::Update(float dt)
             mapEditor->NewMap();
         }
 
+        if (ImGui::MenuItem("Import Tilemap"))
+        {
+
+        }
+        
+        if (ImGui::MenuItem("Reload Assets"))
+        {
+
+        }
+
+        if (ImGui::MenuItem("Active Auto Reload"))
+        {
+
+        }
+
         if (ImGui::MenuItem("Clear Map"))
         {
             //DeRegister Maps
@@ -66,7 +101,7 @@ void Editor::Update(float dt)
     {
         if (ImGui::MenuItem("Start"))
         {
-
+            game->ChangeGameState(INGAME);
         }
         if (ImGui::MenuItem("Pause"))
         {
@@ -74,7 +109,7 @@ void Editor::Update(float dt)
         }
         if (ImGui::MenuItem("Stop"))
         {
-
+            game->ChangeGameState(INEDITOR);
         }
         ImGui::EndMenu();
 

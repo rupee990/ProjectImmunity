@@ -1,6 +1,7 @@
 #include "ResourceManager.h"
 #include "SFML/Graphics.hpp"
 #include "cereal/archives/json.hpp"
+#include <ScriptManager.h>
 
 #include <filesystem>
 #include <iostream>
@@ -10,7 +11,7 @@ namespace fs = std::experimental::filesystem;
 
 ResourceManager::ResourceManager()
 {
-
+    scriptmanager = new ScriptManager();
 }
 
 ResourceManager::~ResourceManager()
@@ -97,6 +98,11 @@ void ResourceManager::LoadAllAssets(std::string path_)
             managerIds++;
 
         }
+        if (extension == ".ru")
+        {
+            //Access scriptManager and load in script
+            scriptmanager->LoadScripts(path.string());
+        }
 
         else if (extension == ".robj")
         {
@@ -107,7 +113,6 @@ void ResourceManager::LoadAllAssets(std::string path_)
             obj->id = managerIds;
 
             objects[managerIds] = obj;
-        
             managerIds++;
         }
     }

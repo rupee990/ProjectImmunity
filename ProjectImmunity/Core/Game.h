@@ -1,5 +1,7 @@
 #pragma once
 
+#include "SFML/Window/Event.hpp"
+
 namespace sf
 {
     class Window;
@@ -11,15 +13,26 @@ namespace sf
 class ResourceManager;
 class Editor;
 class Renderer;
+class Camera;
+class EntityManager;
 
-class Simulation
+
+enum GameStates
+{
+    INEDITOR = 0,
+    INGAME,
+};
+
+class Game
 {
 public:
-    Simulation(sf::RenderWindow* win_);
-    ~Simulation();
+    Game(sf::RenderWindow* win_);
+    ~Game();
 
     void Update();
     void Render();
+
+    void ChangeGameState(GameStates _newstate) { gamestate = _newstate; }
 
 private:
     sf::RenderWindow* window;
@@ -31,8 +44,13 @@ private:
     //Managers
     ResourceManager* resourceManager;
     Renderer* renderer;
+    EntityManager* eManager;
+
+    GameStates gamestate = INEDITOR;
+
+    sf::Event event;
 
     //Editor
     Editor* editor;
-
+    Camera* camera;
 };

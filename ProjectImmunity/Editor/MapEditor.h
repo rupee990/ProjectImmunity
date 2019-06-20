@@ -1,6 +1,4 @@
 #pragma once
-
-#include "../Global.h"
 #include <vector>
 
 class Map;
@@ -43,7 +41,15 @@ public:
     void Render();
 
     void NewMap(); //Initialize Map map and default map values
-    void NewRoom(uint sizex_, uint sizey_, float posx_, float posy_, std::string TileMap = "DebugTileMap");
+    void NewRoom(unsigned int sizex_, unsigned int sizey_, float posx_, float posy_, std::string TileMap = "DebugTileMap");
+
+    //Various PopUps
+    void OpenTilemapPopup();
+    void TilemapParametersPopup();
+
+    //Refresh used Assets
+    void RefreshAssets();
+    
 
 private:
 
@@ -53,10 +59,12 @@ private:
     ToolStates  toolState = SELECT;
 
     sf::Texture* tilemap;
+    std::string tileMapAssetId;
     sf::Sprite* tilemapSprite;
 
     Room* selectedRoom;
     sf::Sprite* selectedTile;
+    sf::Sprite* tilePreview;
 
     //Room Selection
     float roomPos[2] = { 0,0 };
