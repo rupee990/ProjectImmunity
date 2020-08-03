@@ -3,19 +3,20 @@
 
 #include "../Imgui/imgui-SFML.h"
 #include "../Imgui/imgui.h"
-#include "../Core/Managers/ResourceManager.h"
+//#include "../Core/Managers/ResourceManager.h"
 #include "../Core/Renderer.h"
 #include "MapEditor.h"
 
 #include "../Core/Game.h"
  
-Editor::Editor(Game* _game, ResourceManager* rm_, Renderer* renderer_, sf::RenderWindow* window_)
+Editor::Editor(Game* _game, ru::ResourceManager* rm_, ru::Renderer* renderer_, sf::RenderWindow* window_, EntityManager* _eManager, PhysicsManager* _pManager)
 {
     game = _game;
-
+    eManager = _eManager;
     rm = rm_;
     window = window_;
     renderer = renderer_;
+    pm = _pManager;
 
     //Initialize editors
     mapEditor = new MapEditor(this);
@@ -34,7 +35,7 @@ void Editor::Update(float dt)
         if (hasFocusOnce)
         {
             hasFocusOnce = false;
-            rm->ReloadAssets();
+            //rm->ReloadAssets();
 
             mapEditor->RefreshAssets();
         }

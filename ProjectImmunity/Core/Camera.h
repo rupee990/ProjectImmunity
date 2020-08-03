@@ -24,6 +24,8 @@ public:
     sf::View*    GetView() { return view; }
     Object*      GetFocusObj() { return focusObj; }
 
+    void HandleEvent(sf::Event& event);
+
     //Keep Editor Size and Position for when moving out of game
     sf::Vector2f edit_pos, edit_size;
 

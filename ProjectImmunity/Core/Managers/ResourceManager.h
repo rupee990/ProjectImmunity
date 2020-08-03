@@ -16,6 +16,8 @@ namespace fs = std::experimental::filesystem;
 
 class Object;
 class Map;
+class EntityManager;
+class Renderer;
 
 namespace sf
 {
@@ -25,7 +27,7 @@ namespace sf
 class ResourceManager
 {
 public:
-    ResourceManager();
+    ResourceManager(Renderer* _renderer, EntityManager* eManager);
     ~ResourceManager();
 
     //Asset Loading
@@ -46,8 +48,8 @@ public:
     ObjectResource* GetObject(std::string);
 
     //Map Getters
-    MapResource* GetMap(int id);
-    MapResource* GetMap(std::string);
+    Map* GetMap(int id);
+    Map* GetMap(std::string);
 
     //Returns the number of elements in a map of type.
     int GetSizeByType(ResourceType type);
@@ -70,4 +72,6 @@ private:
     //std::map<int, MapResource*>     maps;
 
     ScriptManager* scriptmanager;
+    Renderer* renderer;
+    EntityManager* eManager;
 };

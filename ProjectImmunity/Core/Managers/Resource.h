@@ -6,11 +6,14 @@
 #include "cereal/types/vector.hpp"
 
 #include <string>
-#include "SFML/Graphics.hpp"
 #include "../Object.h"
 #include "../Map.h"
 #include "../../Editor/Tile.h"
 #include "../../Utilities/SFMLserialize.h"
+
+#include "ECS.h"
+#include "../GameComponents.h"
+#include "Transform.h"
 
 enum ResourceType
 {
@@ -22,6 +25,7 @@ enum ResourceType
 struct TextureResource
 {
     std::string name;
+    std::string filepath;
     unsigned int id;
 
     sf::Texture* texture;
@@ -32,18 +36,20 @@ struct ObjectResource
     std::string name;
     unsigned int id;
 
-    ObjectResource* object;
+    /*TODO: add general object data such as components and the information attached to the components*/
+
+    //ObjectResource* object;
 
     template<class Archive>
     void save(Archive& archive)
     {
-        archive(CEREAL_NVP(name), CEREAL_NVP(object->name));
+        archive(CEREAL_NVP(name));
     }
 
     template<class Archive>
     void load(Archive& archive)
     {
-        archive(CEREAL_NVP(name), CEREAL_NVP(object->name));
+        archive(CEREAL_NVP(name));
     }
 };
 
@@ -52,23 +58,24 @@ struct ObjectResource
 */
 struct TileResource
 {
-    Tile* tile;
+   //Tile* tile ;
 
+    sf::Vector2i coord;
     sf::IntRect texRect;
     sf::Vector2f position;
 
     template <class Archive>
     void save(Archive& archive) const
     {
-        sf::serialize(archive, tile->coord);
-        sf::serialize(archive, tile->sprite.getPosition());
-        sf::serialize(archive, tile->sprite.getTextureRect());
+        sf::serialize(archive, coord);
+        sf::serialize(archive, position);
+        sf::serialize(archive, texRect);
     }
 
     template<class Archive>
     void load(Archive& archive)
     {
-        sf::serialize(archive, tile->coord);
+        sf::serialize(archive, coord);
         sf::serialize(archive, position);
         sf::serialize(archive, texRect);
     }
@@ -78,24 +85,27 @@ struct RoomResource
 {
     std::string tilemapName;
 
-    Room* room;
+    sf::Vector2f position;
+    sf::Vector2i size;
+
+    std::vector<TileResource*> tiles;
 
     template<class Archive>
     void save(Archive& archive) const
     {
-        archive(CEREAL_NVP(room->tilemapName));
+        archive(CEREAL_NVP(tilemapName));
 
-        sf::serialize(archive, room->position);
-        sf::serialize(archive, room->size);
+        sf::serialize(archive, position);
+        sf::serialize(archive, size);
     }   
 
     template<class Archive>
     void load(Archive& archive)
     {
-        archive(CEREAL_NVP(room->tilemapName));
+        archive(CEREAL_NVP(tilemapName));
 
-        sf::serialize(archive, room->position);
-        sf::serialize(archive, room->size);
+        sf::serialize(archive, position);
+        sf::serialize(archive, size);
     }
 };
 
@@ -105,7 +115,7 @@ struct MapResource
     unsigned int id;
     unsigned int numberOfRooms;
 
-    Map* map;
+    std::vector<RoomResource*> rooms;
 
     template<class Archive>
     void save(Archive& archive) const

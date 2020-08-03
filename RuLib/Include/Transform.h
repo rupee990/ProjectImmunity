@@ -1,8 +1,8 @@
 #pragma once
 
-#include "ECS.h"
+#include "System/ECS.h"
 #include "SFML/System/Vector2.hpp"
-#include "..\lib\glm\glm\glm.hpp"
+#include "cereal/cereal.hpp"
 
 namespace ru
 {
@@ -11,10 +11,22 @@ namespace ru
         sf::Vector2f pos;
         float rot;
         sf::Vector2f scale;
+
+        template<class Archive>
+        void save(Archive& archive) const
+        {
+            archive(CEREAL_NVP(pos.x), CEREAL_NVP(pos.y), CEREAL_NVP(rot), CEREAL_NVP(scale.x), CEREAL_NVP(scale.y));
+        };
+
+        template<class Archive>
+        void load(Archive& archive)
+        {
+            archive(CEREAL_NVP(pos.x), CEREAL_NVP(pos.y), CEREAL_NVP(rot), CEREAL_NVP(scale.x), CEREAL_NVP(scale.y));
+        };
+
     };
 
-
-    struct Rect
+    struct RRect
     {
         sf::Vector2f pos;
         float sizex;
@@ -23,11 +35,33 @@ namespace ru
 
     class TransformComponent : public Component
     {
-
     public:
-        sf::Vector2f pos;
-        float rot;
-        sf::Vector2f scale;
+        TransformComponent() 
+        { 
+
+        };
+
+        void Init() override
+        {
+            transform.pos = sf::Vector2f(0.0f, 0.0f);
+            transform.rot = 0.0f;
+            transform.scale = sf::Vector2f(1.0f, 1.0f);
+        }
+
+        Transform transform;
+
+        template<typename Archive>
+        void save(Archive& archive) const
+        {
+            archive(transform);
+        }
+
+        template<typename Archive>
+        void load(Archive& archive)
+        {
+            archive(transform);
+        }
+
     };
 
     /*glm::vec2 GetDirection(glm::vec2 A, glm::vec2 B)

@@ -25,6 +25,7 @@ public:
     }
 
     void Render();
+    static void Render(sf::Drawable& drawable);
 
     sf::RenderWindow& GetRenderTarget() { return *window; }
 

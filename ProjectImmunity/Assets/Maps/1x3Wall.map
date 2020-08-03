@@ -1,0 +1,53 @@
+{
+    "name": "1x3Wall",
+    "tilemapName": "32x32Tilemap",
+    "numberOfRooms": 1,
+    "transform": {
+        "pos.x": 0.0,
+        "pos.y": 0.0,
+        "rot": 0.0,
+        "scale.x": 1.0,
+        "scale.y": 1.0
+    },
+    "size.x": 1,
+    "size.y": 3,
+    "coord.x": 2,
+    "coord.y": 0,
+    "transform": {
+        "pos.x": 64.0,
+        "pos.y": 0.0,
+        "rot": 0.0,
+        "scale.x": 1.0,
+        "scale.y": 1.0
+    },
+    "textureRect.width": 32,
+    "textureRect.height": 32,
+    "textureRect.top": 0,
+    "textureRect.left": 0,
+    "coord.x": 2,
+    "coord.y": 1,
+    "transform": {
+        "pos.x": 64.0,
+        "pos.y": 32.0,
+        "rot": 0.0,
+        "scale.x": 1.0,
+        "scale.y": 1.0
+    },
+    "textureRect.width": 32,
+    "textureRect.height": 32,
+    "textureRect.top": 0,
+    "textureRect.left": 0,
+    "coord.x": 2,
+    "coord.y": 2,
+    "transform": {
+        "pos.x": 64.0,
+        "pos.y": 64.0,
+        "rot": 0.0,
+        "scale.x": 1.0,
+        "scale.y": 1.0
+    },
+    "textureRect.width": 32,
+    "textureRect.height": 32,
+    "textureRect.top": 0,
+    "textureRect.left": 0
+}

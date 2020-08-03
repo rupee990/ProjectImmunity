@@ -1,7 +1,7 @@
 #include "Game.h"
 #include "SFML/Window.hpp"
 #include "SFML/Graphics.hpp"
-#include "Managers/ResourceManager.h"
+//#include "Managers/ResourceManager.h"
 #include "../Editor/Tile.h"
 #include "../Editor/EditorManager.h"
 #include "../Core/Renderer.h"
@@ -11,35 +11,91 @@
 #include "../Imgui/imgui.h"
 #include "../Imgui/imgui-SFML.h"
 
-#include <ECS.h>
-#include "GameComponents.h"
+#include "Resources/ResourceManager.h"
+#include "Graphics/GraphicsComponents.h"
+#include "Graphics/Renderer.h"
+#include "Graphics/Camera.h"
+#include "System/Utilities.h"
+#include "System/Input.h"
+#include "World/Player.h"
+#include "Physics/PhysicsManager.h"
+#include "Physics/PhysicsComponents.h"
+#include "World/World.h"
+
+#include <System/ECS.h>
+//#include "GameComponents.h"
 
 #include <filesystem>
 
+#include "Engine.h"
+
+#define _SILENCE_EXPERIMENTAL_FILESYSTEM_DEPRECATION_WARNING
+#include <experimental/filesystem>
+
 namespace fs = std::experimental::filesystem;
 
-Game::Game(sf::RenderWindow* win_) : window(win_)
+Game::Game(sf::RenderWindow* win_)
 {
-    ImGui::SFML::Init(*win_);
-    
+    gamestate = GameStates::INEDITOR;
+
     clock = new sf::Clock();
 
-    resourceManager = new ResourceManager();
-    resourceManager->LoadAllAssets(fs::current_path().string() + "/Assets");
+    window = win_;
 
-    renderer = new Renderer(win_);
+    m_engine = new ru::Engine(win_);
+    m_engine->StartEngine();
 
-    editor = new Editor(this, resourceManager, renderer, win_);
+    world = new ru::World();
+    world->window = win_;
 
-    camera = new Camera(win_, &event);
+    renderer = m_engine->GetRenderer();
 
-    eManager = new EntityManager();
+    eManager = m_engine->GetEntityManager();
+    eManager->world = world;
 
-    //Create Player Entity
-    Entity& player(eManager->AddEntity());
-    player.AddComponent<ru::PlayerComponent>(5.0f, eManager, renderer, resourceManager);
-    player.AddComponent<ru::SpriteComponent>(resourceManager->GetTexture("Hacker"), renderer);
-    player.AddComponent<ru::PlayerMovementComponent>(&event);
+    resourceManager = m_engine->GetResourceManager();
+
+    camera = new ru::Camera(window);
+    inputmanager = m_engine->GetInputManager();
+
+    pManager = m_engine->GetPhysicsManager();
+
+    world = new ru::World();
+    world->window = window;
+
+    sf::Texture& t = resourceManager->GetTexture("Ghost");
+    player = new Player();
+    eManager->AddEntity(player, GroupType::Phyisical);
+    player->AddComponent<ru::TransformComponent>();
+    player->AddComponent<ru::PhysicsMovementComponent>();
+    player->AddComponent<ru::DebugBox>();
+    //player->world = world;
+
+    player->AddComponent<ru::SpriteComponent>(t, 1);
+    renderer->Register(player->GetComponent<ru::SpriteComponent>());
+
+    ru::RectangleComponent& rect = player->AddComponent<ru::RectangleComponent>();
+    rect.phys_type = DYNAMIC;
+    rect.col_type = RECTANGLE;
+    rect.rect.sizex = 32.0f;
+    rect.rect.sizey = 32.0f;
+    rect.rect.pos.x -= 32.0f;
+    rect.rect.pos.y -= 32.0f;
+    rect.awake = true;
+    pManager->Register(&rect);
+
+    ru::PlayerControllerComponent& p_controller = player->AddComponent<ru::PlayerControllerComponent>();
+    p_controller.AddQueueKey(sf::Keyboard::W, "Forward");
+    p_controller.AddQueueKey(sf::Keyboard::S, "Backward");
+    p_controller.AddQueueKey(sf::Keyboard::A, "Left");
+    p_controller.AddQueueKey(sf::Keyboard::D, "Right");
+    //p_controller.AddQueueKey(sf::Mouse::Button::Left, "L-Mouse");
+
+    inputmanager->SetController(&p_controller);
+
+    ImGui::SFML::Init(*win_);
+    editor = new Editor(this, resourceManager, renderer, window, eManager, pManager);
+    world->map = editor->map;
 }
 
 Game::~Game()
@@ -47,59 +103,52 @@ Game::~Game()
 
 }
 
-void Game::Update()
+void Game::Update(float _dt)
 {
     sf::Time dt = clock->restart();
+    if (gamestate == GameStates::INEDITOR)
+    {
+        ImGui::SFML::Update(*window, dt);
+    }
 
-    while (window->pollEvent(event))
+    sf::Event event;
+
+    if (window->pollEvent(event))
     {
         ImGui::SFML::ProcessEvent(event);
 
-        if (camera->GetFocusObj() == nullptr)
-        {
-            //Check for Zoom
-            if (event.type == sf::Event::MouseWheelMoved)
-            {
-                //Zoom works by increasing the size of the view.
-                if (event.mouseWheel.delta > 0)
-                {
-                    camera->SetViewPortSize(sf::Vector2f(camera->GetViewPortSize().x - (16.0f * 2), camera->GetViewPortSize().y - (9.0f * 2)));
-                }
-                else if (event.mouseWheel.delta < 0)
-                {
-                    camera->SetViewPortSize(sf::Vector2f(camera->GetViewPortSize().x + (16.0f * 2), camera->GetViewPortSize().y + (9.0f * 2)));
-                }
-            }
-            //Check for Movement
+        camera->HandleEvent(event);
 
-        }
         if (event.type == sf::Event::Closed)
         {
             window->close();
         }
+
+        if (event.type == sf::Event::KeyReleased)
+        {
+            if (event.key.code == sf::Keyboard::Escape)
+            {
+                gamestate = GameStates::INEDITOR;
+            }
+        }
+
+        inputmanager->Update(event);
     }
 
-
-
-    if (gamestate == INGAME)
+    if (gamestate == GameStates::INGAME)
     {
-        //Update Entity Manager
+        player->Update(dt.asSeconds());
+        pManager->Update();
     }
-    else if (gamestate == INEDITOR)
-    {
-        
-    }
-
-    //Update imgui
-    ImGui::SFML::Update(*window, dt);
 
     eManager->Update();
 
-    editor->Update(dt.asSeconds());
-
-    //Update Camera
     camera->Update(dt.asSeconds());
 
+    if (gamestate == GameStates::INEDITOR)
+    {
+        editor->Update(dt.asSeconds());
+    }
 }
 
 void Game::Render()
@@ -108,9 +157,17 @@ void Game::Render()
 
     window->setView(*camera->GetView());
 
-    renderer->Render(); //Game Objects
+    eManager->Draw();
 
-    editor->Render(); //Render Imgui 
+    
+
+    //renderer->Render();
+
+    if (gamestate == GameStates::INEDITOR)
+    {
+        editor->Render();
+    }
 
     window->display();
 }
+

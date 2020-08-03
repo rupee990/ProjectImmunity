@@ -10,12 +10,24 @@ namespace sf
     class Clock;
 }
 
+namespace ru
+{
+    class Renderer;
+    class ResourceManager;
+    class Camera;
+    class World;
+    class Engine;
+}
+
+class PhysicsManager;
+class Player;
+class InputManager;
 class ResourceManager;
 class Editor;
 class Renderer;
-class Camera;
-class EntityManager;
 
+class EntityManager;
+class BaseSystems;
 
 enum GameStates
 {
@@ -29,10 +41,23 @@ public:
     Game(sf::RenderWindow* win_);
     ~Game();
 
-    void Update();
+    void Update(float _dt);
     void Render();
 
-    void ChangeGameState(GameStates _newstate) { gamestate = _newstate; }
+    void ChangeGameState(GameStates _newstate) 
+    { 
+        gamestate = _newstate; 
+    };
+
+    GameStates GetCurrentState() { return gamestate; }
+
+    BaseSystems* GetBaseSystem()
+    {
+        return baseSys;
+    };
+
+public:
+    ru::World* world;
 
 private:
     sf::RenderWindow* window;
@@ -41,10 +66,13 @@ private:
     //Imgui Menu bools
     bool isProgramMenuOpen = false;
 
+    BaseSystems* baseSys;
+
     //Managers
-    ResourceManager* resourceManager;
-    Renderer* renderer;
+    ru::ResourceManager* resourceManager;
+    ru::Renderer* renderer;
     EntityManager* eManager;
+    PhysicsManager* pManager;
 
     GameStates gamestate = INEDITOR;
 
@@ -52,5 +80,10 @@ private:
 
     //Editor
     Editor* editor;
-    Camera* camera;
+    ru::Camera* camera;
+
+    Player* player;
+    InputManager* inputmanager;
+
+    ru::Engine* m_engine;
 };

@@ -21,7 +21,7 @@ int main()
 
     while (window->isOpen())
     {
-        game->Update();
+        game->Update(0.0f);
         game->Render();
     }
 

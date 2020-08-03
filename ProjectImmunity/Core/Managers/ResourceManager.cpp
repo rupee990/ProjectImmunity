@@ -1,7 +1,7 @@
 #include "ResourceManager.h"
 #include "SFML/Graphics.hpp"
 #include "cereal/archives/json.hpp"
-#include <ScriptManager.h>
+//#include <ScriptManager.h>
 
 #include <filesystem>
 #include <iostream>
@@ -9,9 +9,10 @@
 
 namespace fs = std::experimental::filesystem;
 
-ResourceManager::ResourceManager()
+ResourceManager::ResourceManager(Renderer* _renderer, EntityManager* _eManager)
 {
     scriptmanager = new ScriptManager();
+    eManager = _eManager;
 }
 
 ResourceManager::~ResourceManager()
@@ -52,7 +53,7 @@ void ResourceManager::LoadAllAssets(std::string path_)
             //Load Map data and store it in list
             cereal::JSONInputArchive archive(stream);
             MapResource* mr = new MapResource;
-            mr->map = new Map();
+            //mr->map = new Map(renderer);
             
             mr->load(archive);
             //ADD FOR LOOP FOR TILE
@@ -60,23 +61,27 @@ void ResourceManager::LoadAllAssets(std::string path_)
             for (int i = 0; i < mr->numberOfRooms; i++)
             {
                 RoomResource* rr = new RoomResource;
-                rr->room = new Room();
+                //rr->room = new Room();
 
                 rr->load(archive);
 
-                for (int j = 0; j < rr->room->size.x * rr->room->size.y; j++)
+                mr->rooms.push_back(rr);
+
+                for (int j = 0; j < rr->size.x * rr->size.y; j++)
                 {
                     TileResource* tr = new TileResource;
-                    tr->tile = new Tile();
+                    //tr->tile = new Tile();
+
+                    Tile& tile(static_cast<Tile&>(eManager->AddEntity()));
 
                     tr->load(archive);
-                    tr->tile->sprite.setPosition(tr->position);
-                    tr->tile->sprite.setTextureRect(tr->texRect);
+                    //tile.GetComponent<ru::Transform>().pos = tr->position;
+                    //tile.GetComponent<ru::SpriteComponent>().spr.setTextureRect(tr->texRect);
 
-                    rr->room->tiles.push_back(tr->tile);
+                    mr->rooms[i]->tiles.push_back(tr);
                 }
 
-                mr->map->rooms[i] = rr->room;
+                /*mr->map->rooms[i] = rr->room;*/
             }
 
             mr->id = managerIds;
@@ -91,8 +96,7 @@ void ResourceManager::LoadAllAssets(std::string path_)
             TextureResource* t = new TextureResource;
             t->id = managerIds;
             t->name = path.stem().string();
-            t->texture = new sf::Texture;
-            t->texture->loadFromFile(path.string());
+            t->texture.loadFromFile(path.string());
 
             textures[managerIds] = t;
             managerIds++;
@@ -158,19 +162,24 @@ void ResourceManager::SaveAsset(Map* map, std::string filename_)
     MapResource* mr = new MapResource();
     mr->numberOfRooms = map->rooms.size();
     mr->name = filename_;
-    mr->map = map;
+    //mr->map = map;
     mr->save(archive);
 
     for (auto& r : map->rooms)
     {
         RoomResource*rr = new RoomResource;
-        rr->room = r.second;
+        /*rr->room = r.second;*/
+        rr->position = map->position;
+        rr->size = map->size;
+
         rr->save(archive);
 
         for (auto& t : r.second->tiles)
         {
             TileResource* tr = new TileResource;
-            tr->tile = t;
+            tr->coord = t->coord;
+            tr->position = t->GetComponent<ru::Transform>().pos;
+            tr->texRect = t->GetComponent<ru::SpriteComponent>().spr.getTextureRect();
             tr->save(archive);
         }
     }
@@ -210,21 +219,41 @@ ObjectResource * ResourceManager::GetObject(std::string)
     return nullptr;
 }
 
-MapResource * ResourceManager::GetMap(int id)
+Map* ResourceManager::GetMap(int id)
 {
-    return maps[id];
+    Map* map = new Map(renderer);
+
+
+
+    //return maps[id];
+
 }
 
-MapResource * ResourceManager::GetMap(std::string name)
+Map* ResourceManager::GetMap(std::string name)
 {
+    Map* map = new Map(renderer);
+
+
+
     for (auto a : maps)
     {
         if (a.second->name == name)
         {
-            return a.second;
+            
+
+            for (auto& r : a.second->rooms)
+            {
+                sf::Texture* tex = GetTexture(r->tilemapName)->texture;
+
+                for (auto& t : r->tiles)
+                {
+                    map->AddTile(t->position, sf::Vector2i(32,32), *tex);
+                }
+            }
         }
     }
-    return nullptr;
+
+    return map;
 }
 
 int ResourceManager::GetSizeByType(ResourceType type)

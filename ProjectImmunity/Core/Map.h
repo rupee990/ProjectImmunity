@@ -6,7 +6,8 @@
 
 #include "SFML/System.hpp"
 
-struct Tile;
+class Tile;
+class Renderer;
 
 namespace sf
 {
@@ -28,7 +29,7 @@ struct Room
 class Map
 {
 public:
-    Map();
+    Map(Renderer* _renderer);
     ~Map();
 
     void AddTile(sf::Vector2f position_, sf::Vector2i size_, sf::Texture& texture_);
@@ -43,5 +44,8 @@ public:
     sf::Vector2f position;
 
     std::map<unsigned int, Room*> rooms;
+
+private:
+    Renderer* renderer;
 
 };

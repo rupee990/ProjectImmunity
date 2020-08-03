@@ -1,12 +1,17 @@
 #pragma once
 #include <vector>
+#include <string>
 
-class Map;
-class ResourceManager;
+namespace ru
+{
+    class Map;
+    class Room;
+    class ResourceManager;
+}
 class Editor;
 
 #define ButtonWidth 100
-#define ButtonHeight 22
+#define ButtonHeight 100
 
 enum EditorTabs
 {
@@ -19,7 +24,9 @@ enum ToolStates
 {
     SELECT,
     ROOM,
-    BRUSH
+    BRUSH,
+    ERASE,
+    COLLIDER
 };
 
 namespace sf
@@ -53,7 +60,7 @@ public:
 
 private:
 
-    Map*        map;
+    ru::Map*    map;
     Editor*     editor;
     EditorTabs  currentTab = TILEMAP;
     ToolStates  toolState = SELECT;
@@ -62,7 +69,7 @@ private:
     std::string tileMapAssetId;
     sf::Sprite* tilemapSprite;
 
-    Room* selectedRoom;
+    ru::Room* selectedRoom;
     sf::Sprite* selectedTile;
     sf::Sprite* tilePreview;
 
@@ -79,6 +86,6 @@ private:
     bool        isNewMapOpen;
     std::vector<const char*> map_items;
 
-
+    int layer = 0;
 
 };

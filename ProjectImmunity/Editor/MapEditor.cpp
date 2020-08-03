@@ -1,43 +1,67 @@
 #include "MapEditor.h"
 
 #include "EditorManager.h"
-#include "../Core/Map.h"
-#include "../Core/Managers/Resource.h"
-#include "../Core/Managers/ResourceManager.h"
-#include "../Core/Renderer.h"
-#include "Utilities.h"
-#include "Tile.h"
+
+#include "../Core/Game.h"
+//#include "../Core/Managers/Resource.h"
+//#include "../Core/Renderer.h"
+//#include "Utilities.h"
+//#include "Tile.h"
+
 #include "../Core/Camera.h"
+#include "../Core/GameComponents.h"
 
 #include <iostream>
 #include <string>
 
-#define TileSizeX 32.0f
-#define TileSizeY 32.0f
+#include "SFML/Graphics/Sprite.hpp"
+
+#include "World/Map.h"
+#include "World/Room.h"
+#include "World/Tile.h"
+#include "System/Utilities.h"
+#include "Graphics/GraphicsComponents.h"
+#include "Resources/Resource.h"
+#include "Resources/ResourceManager.h"
+#include "Graphics/Renderer.h"
+#include "Physics/PhysicsComponents.h"
+#include "Graphics/DebugRenderingComponents.h"
+#include "Physics/PhysicsManager.h"
+#include "World/World.h"
+#include "System/ECS.h"
+#include "Graphics/DebugRenderingComponents.h"
+
 
 MapEditor::MapEditor(Editor* editor_)
 {
     editor = editor_;
 
-    int size = editor->rm->GetSizeByType(TEXTURE);
+    std::vector<std::string> names = editor->rm->GetResourceNames(ru::ResourceType::TEXTURE);
 
-    //Get All Names for texture Items
-    for (int i = 0; i < size; i++)
-    {
-        TextureResource* tex = editor->rm->GetTexture(i);
-        if (tex)
-        {
-            textures_items.push_back(tex->name.c_str());
-        }
+    for (int i = 0; i < names.size(); i++)
+    {       
+        std::string* str = new std::string(names[i]);
+        textures_items.push_back(str->c_str());
     }
+
+    //for (int i = 0; i < size; i++)
+    //{
+    //    ru::resource::Texture* tex = editor->rm->GetTextureResource(i);
+    //    if (tex)
+    //    {
+    //        textures_items.push_back(tex->name.c_str());
+    //    }
+    //}
 
     //Get all names for map items
-    size = editor->rm->GetSizeByType(MAP);
+    names = editor->rm->GetResourceNames(ru::ResourceType::MAP);
 
-    for (int i = 0; i < size; i++)
+    for (int i = 0; i < names.size(); i++)
     {
-        map_items.push_back(editor->rm->GetMap(i)->name.c_str());
+        std::string* str = new std::string(names[i]);
+        map_items.push_back(str->c_str());
     }
+
 }
 
 MapEditor::~MapEditor()
@@ -51,19 +75,19 @@ void MapEditor::Update(float dt)
     {
         if (ImGui::IsMouseClicked(0) && !ImGui::IsMouseHoveringAnyWindow() && map)
         {
-            sf::Vector2f mpos = editor->window->mapPixelToCoords(sf::Mouse::getPosition());
-            for (auto& a : map->rooms)
+            sf::Vector2f mpos = editor->window->mapPixelToCoords(sf::Mouse::getPosition(*editor->window));
+            for (ru::Room* a : map->GetRooms())
             {
-                sf::Vector2f roomCenter = a.second->position + sf::Vector2f((a.second->size.x * TileSizeX)* 0.5f, (a.second->size.y * TileSizeY) * 0.5f);
+                sf::Vector2f roomCenter = a->transform.pos + sf::Vector2f((a->size.x * TileSizeX)* 0.5f, (a->size.y * TileSizeY) * 0.5f);
 
                 //Check what room we are hovering
-                if (ru::DistCheck(roomCenter, mpos, ru::GetDistance(a.second->position, roomCenter)))
+                if (ru::DistCheck(roomCenter, mpos, ru::GetDistance(a->transform.pos, roomCenter)))
                 {
                     //Select Room
-                    selectedRoom = a.second;
+                    selectedRoom = a;
 
-                    roomPos[0] = selectedRoom->position.x;
-                    roomPos[1] = selectedRoom->position.y;
+                    roomPos[0] = selectedRoom->transform.pos.x;
+                    roomPos[1] = selectedRoom->transform.pos.y;
                 }
             }
         }
@@ -71,27 +95,30 @@ void MapEditor::Update(float dt)
 
     if (toolState == BRUSH)
     {
-        if (ImGui::IsMouseClicked(0, true) && !ImGui::IsMouseHoveringAnyWindow() && map)
+        if (ImGui::IsMouseClicked(0, true) && !ImGui::IsMouseHoveringAnyWindow() && map && selectedTile != nullptr)
         {
-            //glm::vec2 mpos = glm::vec2(ImGui::GetMousePos().x, ImGui::GetMousePos().y);
+            sf::Vector2f mpos = editor->window->mapPixelToCoords(sf::Mouse::getPosition(*editor->window));
 
-            sf::Vector2f mpos = editor->window->mapPixelToCoords(sf::Mouse::getPosition());
-
-            for (auto& a : map->rooms)
+            for (auto& a : map->GetRooms())
             {
-                sf::Vector2f roomCenter = a.second->position + sf::Vector2f((a.second->size.x * TileSizeX)* 0.5f, (a.second->size.y * TileSizeY) * 0.5f);
+                sf::Vector2f roomCenter = a->transform.pos + sf::Vector2f((a->size.x * TileSizeX)* 0.5f, (a->size.y * TileSizeY) * 0.5f);
 
                 //Check what room we are hovering
-                if (ru::DistCheck(roomCenter, mpos, ru::GetDistance(sf::Vector2f(a.second->position.x, a.second->position.y), roomCenter)))
+                if (ru::DistCheck(roomCenter, mpos, ru::GetDistance(sf::Vector2f(a->transform.pos.x, a->transform.pos.y), roomCenter)))
                 {
                     //Perform AABB
-                    if (ru::AABB(mpos, a.second->position, sf::Vector2f(a.second->size.x * TileSizeX, a.second->size.y * TileSizeY)))
+                    if (ru::AABB(mpos, a->transform.pos, sf::Vector2f(a->size.x * TileSizeX, a->size.y * TileSizeY)))
                     {
-                        int x = (mpos.x - a.second->position.x) / TileSizeX;
-                        int y = (mpos.y - a.second->position.y) / TileSizeY;
+                        int x = (mpos.x - a->transform.pos.x) / TileSizeX;
+                        int y = (mpos.y - a->transform.pos.y) / TileSizeY;
+
+                        /*if (!editor->renderer->isRegistered(a->tiles[(GroupType)(layer)][x + a->size.x * y]->GetComponent<ru::SpriteComponent>()))
+                        {
+                            editor->renderer->Register(a->tiles[(GroupType)(layer)][x + a->size.x * y]->GetComponent<ru::SpriteComponent>());
+                        }*/
 
                         //Change the tile at location
-                        a.second->tiles[x + a.second->size.x * y]->sprite.setTextureRect(selectedTile->getTextureRect());
+                        a->tiles[(GroupType)(layer)][x + a->size.x * y]->GetComponent<ru::SpriteComponent>().sprite.setTextureRect(selectedTile->getTextureRect());
                     }
                 }
             }
@@ -107,6 +134,78 @@ void MapEditor::Update(float dt)
             tilePreview->setPosition(sf::Vector2f(x, y));
         }
     }
+
+    if (toolState == ERASE)
+    {
+        if (ImGui::IsMouseClicked(0, true) && !ImGui::IsMouseHoveringAnyWindow() && map)
+        {
+            sf::Vector2f mpos = editor->window->mapPixelToCoords(sf::Mouse::getPosition(*editor->window));
+
+            for (auto& a : map->GetRooms())
+            {
+                sf::Vector2f roomCenter = a->transform.pos + sf::Vector2f((a->size.x * TileSizeX)* 0.5f, (a->size.y * TileSizeY) * 0.5f);
+
+                int x = (mpos.x - a->transform.pos.x) / TileSizeX;
+                int y = (mpos.y - a->transform.pos.y) / TileSizeY;
+
+                if (a->tiles[(GroupType)(layer)][x + a->size.x * y]->GetComponent<ru::SpriteComponent>().renderID != -1)
+                {
+                    //Check what room we are hovering
+                    if (ru::DistCheck(roomCenter, mpos, ru::GetDistance(sf::Vector2f(a->transform.pos.x, a->transform.pos.y), roomCenter)))
+                    {
+                         //Perform AABB
+                         if (ru::AABB(mpos, a->transform.pos, sf::Vector2f(a->size.x * TileSizeX, a->size.y * TileSizeY)))
+                         {
+                                 //Change the tile at location
+                                 editor->renderer->Deregister(a->tiles[(GroupType)(layer)][x + a->size.x * y]->GetComponent<ru::SpriteComponent>());
+                                 a->tiles[(GroupType)(layer)][x + a->size.x * y]->GetComponent<ru::SpriteComponent>().renderID = -1;
+                         }
+                    }
+                }
+            }
+        }
+    }
+
+    if (toolState == COLLIDER)
+    {
+        if (ImGui::IsMouseClicked(0, false) && !ImGui::IsMouseHoveringAnyWindow() && map)
+        {
+            sf::Vector2f mpos = editor->window->mapPixelToCoords(sf::Mouse::getPosition(*editor->window));
+
+            for (auto& a : map->GetRooms())
+            {
+                sf::Vector2f roomCenter = a->transform.pos + sf::Vector2f((a->size.x * TileSizeX)* 0.5f, (a->size.y * TileSizeY) * 0.5f);
+
+                int x = (mpos.x - a->transform.pos.x) / TileSizeX;
+                int y = (mpos.y - a->transform.pos.y) / TileSizeY;
+
+                //Check what room we are hovering
+                if (ru::DistCheck(roomCenter, mpos, ru::GetDistance(sf::Vector2f(a->transform.pos.x, a->transform.pos.y), roomCenter)))
+                {
+                    //Perform AABB
+                    if (ru::AABB(mpos, a->transform.pos, sf::Vector2f(a->size.x * TileSizeX, a->size.y * TileSizeY)))
+                    {
+                        //Change the tile at location
+                        //editor->renderer->Deregister(a->tiles[x + a->size.x * y]->GetComponent<ru::SpriteComponent>());
+                        //a->tiles[x + a->size.x * y]->GetComponent<ru::SpriteComponent>().renderID = -1;
+                        ru::RectangleComponent& rectComp = a->tiles[(GroupType)(layer)][x + a->size.x * y]->AddComponent<ru::RectangleComponent>();
+                        rectComp.rect.pos = a->tiles[(GroupType)(layer)][x + a->size.x * y]->GetComponent<ru::TransformComponent>().transform.pos;
+                        rectComp.rect.sizex = TileSizeX;
+                        rectComp.rect.sizey = TileSizeY;
+                        rectComp.awake = true;
+                        editor->pm->Register(&rectComp);
+
+                        ru::DebugBox& dBox = a->tiles[(GroupType)(layer)][x + a->size.x * y]->AddComponent<ru::DebugBox>();
+                        dBox.rectangle.setFillColor(sf::Color::Transparent);
+                        dBox.rectangle.setOutlineColor(sf::Color::Green);
+                        dBox.rectangle.setOutlineThickness(1.0f);
+                        editor->renderer->Register(dBox);
+                    }
+                }
+            }
+        }
+    }
+
 }
 
 void MapEditor::UpdateEditorUI(float dt)
@@ -126,13 +225,18 @@ void MapEditor::UpdateEditorUI(float dt)
         ImGui::OpenPopup("New Room");
     }
 
+    if (ImGui::Button("Erase", ImVec2(ButtonWidth, ButtonHeight)))
+    {
+        toolState = ERASE;
+    }
+
     //New Room Popup
     ImGui::SetNextWindowSize(ImVec2(300, 230));
     if (ImGui::BeginPopupModal("New Room"))
     {
         static int size[2];
         static float position[2];
-        static const char* preview;
+        static const char* preview = "none";
         static sf::Texture* tilemapTexturePreview;
 
         ImGui::InputFloat2("Position", position);
@@ -149,7 +253,8 @@ void MapEditor::UpdateEditorUI(float dt)
                     preview = textures_items[n];
 
                     tilemapTexturePreview = new sf::Texture;
-                    tilemapTexturePreview = editor->rm->GetTexture(textures_items[n])->texture;
+                    tilemapTexturePreview = &editor->rm->GetTexture(std::string(preview));
+                    
                 }
 
                 if (is_selected)
@@ -170,6 +275,7 @@ void MapEditor::UpdateEditorUI(float dt)
         {
             NewRoom(size[0], size[1], position[0], position[1], std::string(preview));
             tilemap = tilemapTexturePreview;
+            map->SetTileMap(std::string(preview));
             ImGui::CloseCurrentPopup();
         }
         ImGui::SameLine();
@@ -187,15 +293,15 @@ void MapEditor::UpdateEditorUI(float dt)
         toolState = BRUSH;
     }
     //New Trigger Area
-    if (ImGui::Button("Trigger Area", ImVec2(ButtonWidth, ButtonHeight)))
+    if (ImGui::Button("Collider", ImVec2(ButtonWidth, ButtonHeight)))
     {
-
+        toolState = COLLIDER;
     }
 
     ImGui::End();
 
     ImGui::SetNextWindowPos(ImVec2(1560, 20));
-    ImGui::SetNextWindowSize(ImVec2(350, 950));
+    ImGui::SetNextWindowSize(ImVec2(500, 950));
     ImGui::Begin("Editor", &editor->isMapEditorOpen);
 
     const char* editors[] = { "Map Editor", "Object Viewer", "Generation" };
@@ -208,14 +314,37 @@ void MapEditor::UpdateEditorUI(float dt)
     if (currentTab == TILEMAP)
     {
         ImGui::Text("Selected Room");
+        bool posChange = false;
 
         //ImGui::InputInt2(": Position", roomPos, 16);
-        ImGui::InputFloat(": X", &roomPos[0], TileSizeX, TileSizeX);
-        ImGui::InputFloat(": Y", &roomPos[1], TileSizeX, TileSizeX);
+        if (ImGui::InputFloat(": X", &roomPos[0], TileSizeX, TileSizeX))
+        {
+            posChange = true;
+        }
+
+        if (ImGui::InputFloat(": Y", &roomPos[1], TileSizeX, TileSizeX))
+        {
+            posChange = true;
+        }
 
         if (selectedRoom)
         {
-            selectedRoom->SetPos(roomPos);
+            selectedRoom->transform.pos.x = roomPos[0];
+            selectedRoom->transform.pos.y = roomPos[1];
+
+                if (posChange)
+                {
+                    for(int i = 0; i < GroupsAmount; i++)
+                    for (ru::Tile* t : selectedRoom->tiles[(GroupType)(i)])
+                    {
+                        sf::Vector2f nPos = t->GetComponent<ru::TransformComponent>().transform.pos;
+                        nPos.x = roomPos[0] + (t->coords.x * TileSizeX);
+                        nPos.y = roomPos[1] + (t->coords.y * TileSizeY);
+
+                        t->GetComponent<ru::TransformComponent>().transform.pos = nPos;
+                    }
+                    posChange = false;
+                }
         }
 
         if (ImGui::Button("Delete"))
@@ -223,15 +352,18 @@ void MapEditor::UpdateEditorUI(float dt)
             //Delete tiles from room
             for (int i = 0; i < selectedRoom->tiles.size(); i++)
             {
-                editor->renderer->DeRegisterObject(i);
+                editor->renderer->Deregister(selectedRoom->tiles[(GroupType)(layer)][i]->GetComponent<ru::SpriteComponent>().renderID, 
+                                             selectedRoom->tiles[(GroupType)(layer)][i]->GetComponent<ru::SpriteComponent>().layer);
             }
 
-            for (auto& a : map->rooms)
+            std::vector<ru::Room*>& rooms = map->GetRooms();
+
+            for (std::vector<ru::Room*>::const_iterator a = rooms.begin(); a != rooms.end(); ++a )
             {
-                if (a.second == selectedRoom)
+                if (*a == selectedRoom)
                 {
-                    delete(a.second);
-                    map->rooms.erase(a.first);
+                    delete(*a);
+                    map->GetRooms().erase(a);
                     break;
                 }
             }
@@ -241,6 +373,9 @@ void MapEditor::UpdateEditorUI(float dt)
         }
 
         ImGui::Separator();
+
+        //Layer
+        ImGui::DragInt("Layer",&layer, 1.0f,0,4);
 
         //Tile set viewer
         if (ImGui::Button("Load Tilemap"))
@@ -266,7 +401,7 @@ void MapEditor::UpdateEditorUI(float dt)
 
                         tilemapTexturePreview = new sf::Texture;
                         tileMapAssetId = textures_items[n];
-                        tilemapTexturePreview = editor->rm->GetTexture(textures_items[n])->texture;
+                        tilemapTexturePreview = &editor->rm->GetTexture(textures_items[n]);
                         
                     }
 
@@ -354,8 +489,10 @@ void MapEditor::UpdateEditorUI(float dt)
                         }
                         static int key;
                         
-                        if(!editor->renderer->isRegistered(key))
-                            key = editor->renderer->RegisterObject(tilePreview);
+                        /*if (!editor->renderer->isRegistered(key))
+                        {
+                            editor->renderer->RegisterSprite(*tilePreview, 1);
+                        }*/
                     }
 
                     tilePreview->setTextureRect(sf::IntRect(x * TileSizeX, y * TileSizeY, TileSizeX, TileSizeY));
@@ -378,13 +515,18 @@ void MapEditor::UpdateEditorUI(float dt)
 
         if (ImGui::BeginPopupModal("OpenMap"))
         {
-            static const char* preview;
+            static const char* preview = "none";
             if (ImGui::BeginCombo(": Maps", preview))
             {
 
                 for (int n = 0; n < map_items.size(); n++)
                 {
-                    bool is_selected = (preview == map_items[n]);
+
+                    bool is_selected;
+                    if (preview != nullptr)
+                        is_selected = (preview == map_items[n]);
+                    else
+                        is_selected = true;
 
                     if (ImGui::Selectable(map_items[n], is_selected))
                     {
@@ -399,49 +541,74 @@ void MapEditor::UpdateEditorUI(float dt)
                 ImGui::EndCombo();
             }
 
-            //Clears current map and opens map.
-            if (ImGui::Button("Load"))
-            {
+    /*        ////Clears current map and opens map.
+            //if (ImGui::Button("Load"))
+            //{
 
-                //@TODO: Clear Map
+            //    //@TODO: Clear Map
 
-                /*std::string s = 
-                int a = std::stoi(s);*/
-                map = editor->rm->GetMap(preview)->map;
+            //    /*std::string s = 
+            //    int a = std::stoi(s);
+            //    //Get Map Resource and generate usuable file for Scene.
+            //    //map = editor->rm->GetMap(preview);
 
-                //Add Entire map to rendering
-                for (auto& r : map->rooms)
-                {
-                    for (auto& t : r.second->tiles)
-                    {
-                        //Get texture
-                        t->texture = new TextureResource;
-                        t->texture->texture = new sf::Texture();
-                        t->texture->texture = editor->rm->GetTexture(r.second->tilemapName)->texture;
-                        t->sprite.setTexture(*t->texture->texture);
+            //    //Add Entire map to rendering
+            //    sf::Texture& tex = editor->rm->GetTexture(map->GetTileMap());
 
-                        editor->renderer->RegisterObject(&t->sprite);
-                    }
-                }
+            //    for (auto& r : map->GetRooms())
+            //    {
+            //        for (auto t : r->tiles)
+            //        {
+            //            t = new ru::Tile(&tex);
+            //            //Get texture
+            //            //t->texture = new TextureResource;
+            //            //t->texture->texture = new sf::Texture();
+            //            //t->texture->texture = editor->rm->GetTexture(r.second->tilemapName)->texture;
+            //            //t->sprite.setTexture(*t->texture->texture);
 
-                ImGui::CloseCurrentPopup();
-            }
+            //            editor->renderer->Register(t->GetComponent<ru::SpriteComponent>());
+            //        }
+            //    }
+
+            //    ImGui::CloseCurrentPopup();
+            //}*/
 
             //Import takes all the rooms within the map and moves them into the currently open map
-            if (ImGui::Button("Import"))
+            
+            if (ImGui::Button("Load"))
             {
-                for (auto& r : map->rooms)
-                {
-                    for (auto& t : r.second->tiles)
-                    {
-                        //Get texture
-                        t->texture = new TextureResource;
-                        t->texture->texture = new sf::Texture();
-                        t->texture->texture = editor->rm->GetTexture(r.second->tilemapName)->texture;
-                        t->sprite.setTexture(*t->texture->texture);
+                if(!map)
+                    NewMap();
 
-                        editor->renderer->RegisterObject(&t->sprite);
+                ru::resource::Map* r_map = editor->rm->GetMap(std::string(preview));
+                map->SetTileMap(r_map->tilemapName);
+
+                sf::Texture& tex = editor->rm->GetTexture(r_map->tilemapName);
+
+                for (auto& r : r_map->rooms)
+                {
+                    ru::Room* room = new ru::Room();
+                    room->AddComponent<ru::TransformComponent>();
+                    room->size = r->size;
+                    room->GetComponent<ru::TransformComponent>().transform = r->transform;
+
+                    for (auto& t : r->tiles)
+                    {
+                        ru::Tile* tile = new ru::Tile(&tex);
+                        ru::SpriteComponent t_spr = tile->GetComponent<ru::SpriteComponent>();
+                        t_spr.sprite.setTextureRect(t->textureRect);
+                        tile->GetComponent<ru::TransformComponent>().transform = t->transform;
+                        tile->coords = sf::Vector2u(t->coord.x, t->coord.y);
+
+
+                        //editor->renderer->Register(tile->GetComponent<ru::SpriteComponent>());
+
+                        editor->eManager->AddEntity(tile, GroupType::Background);
+
+                        room->tiles[(GroupType)(layer)].push_back(tile);
                     }
+
+                    map->AddRoom(room);
                 }
 
                 ImGui::CloseCurrentPopup();
@@ -464,8 +631,10 @@ void MapEditor::UpdateEditorUI(float dt)
 
         if (ImGui::Button("Save Map"))
         {
-            
-            editor->rm->SaveAsset(map, buffer);
+            std::string name = std::string(buffer);
+            //editor->rm->SaveAsset<ru::Map>(name, map, ru::ResourceType::MAP);
+
+            editor->rm->SaveAsset(name, map);
         }
 
     
@@ -496,7 +665,9 @@ void MapEditor::NewMap()
     if (map != nullptr)
         delete(map);
 
-    map = new Map();
+    map = new ru::Map(editor->game->GetBaseSystem());
+
+    editor->game->world->map = map;
 }
 
 void MapEditor::NewRoom(unsigned int sizex_, unsigned int sizey_, float posx_, float posy_, std::string TileMap)
@@ -509,40 +680,53 @@ void MapEditor::NewRoom(unsigned int sizex_, unsigned int sizey_, float posx_, f
 
     static int mapid = 0;
 
+    sf::Texture* tex = &editor->rm->GetTexture(TileMap);
+
     //make sure that spot on map is empty
-    while (map->rooms[mapid])
+  /*  while (map->rooms[mapid])
     {
         mapid++;
-    }
+    }*/
 
-    Room* room = new Room;
-    room->tilemapName = TileMap;
-    room->position = sf::Vector2f(posx_, posy_);
-    room->size = sf::Vector2u(sizex_, sizey_);
+    ru::Room* room = new ru::Room;
+    room->AddComponent<ru::TransformComponent>();
+    room->GetComponent<ru::TransformComponent>().transform.pos = sf::Vector2f(posx_, posy_);
+
+    room->size = sf::Vector2i(sizex_, sizey_);
 
     for (int i = 0; i < sizey_; i++)
     {
         for (int j = 0; j < sizex_; j++)
         {
-            
-            Tile* tile = new Tile;
-            //tile->id = i + j * sizex_;
+            for (int l = 0; l < GroupsAmount; l++)
+            {
+                ru::Tile* tile = new ru::Tile(tex);
+                editor->eManager->AddEntity(tile, GroupType::Background);
+                tile->GetComponent<ru::SpriteComponent>().layer = 0;
+                tile->GetComponent<ru::SpriteComponent>().renderID = -1;
+                //editor->renderer->Register(tile->GetComponent<ru::SpriteComponent>());
+                tile->GetComponent<ru::SpriteComponent>().sprite.setTextureRect(sf::IntRect(sf::Vector2i(0, 0), sf::Vector2i(0, 0)));
+                tile->GetComponent<ru::TransformComponent>().transform.pos = sf::Vector2f((j * TileSizeX) + posx_,
+                    (i * TileSizeY) + posy_);
+                tile->coords = sf::Vector2u(j, i);
+                // tile->size = sf::Vector2u(TileSizeX, TileSizeY);
+                room->tiles[(GroupType)(l)].push_back(tile);
 
-            //Set Up base texture and sprite
-            tile->texture = editor->rm->GetTexture(TileMap);
-            tile->sprite = sf::Sprite(*tile->texture->texture);
-            tile->coord = sf::Vector2i(j, i);
-            tile->sprite.setTextureRect(sf::IntRect(sf::Vector2i(0, 0), sf::Vector2i(TileSizeX, TileSizeY)));
-
-            tile->sprite.setPosition(sf::Vector2f(  (j * tile->sprite.getTextureRect().width) + posx_, 
-                                                    (i * tile->sprite.getTextureRect().height) + posy_));
-            room->tiles.push_back(tile);
-
-            tile->id = editor->renderer->RegisterObject(&tile->sprite);
+                if(editor->game->GetCurrentState() == GameStates::INEDITOR)
+                if (l == 0)
+                {
+                    ru::DebugBox db = tile->AddComponent<ru::DebugBox>();
+                    db.rectangle.setPosition(tile->GetComponent<ru::TransformComponent>().transform.pos);
+                    db.rectangle.setSize(sf::Vector2f(32.0f, 32.0f));
+                    db.rectangle.setOutlineColor(sf::Color::White);
+                }
+            }
         }
     }
 
-    map->rooms[mapid] = room;
+    editor->eManager->AddEntity(room, GroupType::Base);
+
+    map->AddRoom(room);
     mapid++;
 }
 
@@ -550,16 +734,16 @@ void MapEditor::RefreshAssets()
 {
     if (tileMapAssetId != "")
     {
-        tilemap = editor->rm->GetTexture(tileMapAssetId)->texture;
+        //tilemap = editor->rm->GetTexture(tileMapAssetId)->texture;
 
         if (!map)
             return;
 
-        for (auto& a : map->rooms)
+        for (auto& a : map->GetRooms())
         {
-            for (auto& t : a.second->tiles)
+            for (auto& t : a->tiles[(GroupType)(layer)])
             {
-                t->sprite.setTexture(*tilemap);
+                t->GetComponent<ru::SpriteComponent>().sprite.setTexture(*tilemap);
             }
         }
     }
